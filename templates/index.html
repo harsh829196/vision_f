@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EndoVision AI — Endoscopic Polyp & GI Lesion Semantic Segmentation</title>
+  <meta name="description" content="State-of-the-art Deep Learning Polyp Segmentation powered by VGG-16 U-Net on Kvasir-SEG colonoscopy frames.">
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dark-theme">
+
+  <!-- Glowing background ambient mesh -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <!-- Header Navigation -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-group">
+        <div class="logo-icon-wrap">
+          <i class="fa-solid fa-microscope"></i>
+          <span class="pulse-ring"></span>
+        </div>
+        <div class="logo-titles">
+          <div class="brand-name">Endo<span class="accent-text">Vision</span> <span class="badge-ai">AI PRO</span></div>
+          <div class="brand-sub">Endoscopic GI Polyp & Lesion Delineation System</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="benchmark-pill" title="Trained on Kvasir-SEG dataset with VGG-16 U-Net">
+        <div class="pill-dot"></div>
+        <span class="pill-label">VGG-16 U-Net</span>
+        <span class="pill-divider">•</span>
+        <span class="pill-metric">Dice <strong>0.8915</strong></span>
+        <span class="pill-divider">•</span>
+        <span class="pill-metric">IoU <strong>0.8301</strong></span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button id="btn-stream-sim" class="btn-secondary" title="Simulate real-time colonoscopy video stream">
+        <i class="fa-solid fa-film"></i>
+        <span>Live Stream Sim</span>
+      </button>
+
+      <button id="btn-model-info" class="btn-secondary" title="View Model Architecture & Training Specs">
+        <i class="fa-solid fa-brain"></i>
+        <span>Model Specs</span>
+      </button>
+
+      <button id="btn-print-report" class="btn-primary" title="Generate Clinical Examination Report">
+        <i class="fa-solid fa-file-medical"></i>
+        <span>Clinical Report</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-workspace">
+    
+    <!-- LEFT PANEL: Upload, Presets & Controls -->
+    <aside class="sidebar-panel">
+      
+      <!-- Section 1: Image Intake -->
+      <div class="card panel-section">
+        <div class="section-title">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <h3>Endoscopy Frame Intake</h3>
+        </div>
+
+        <div id="drop-zone" class="drop-zone">
+          <input type="file" id="file-input" accept="image/*" class="file-input-hidden">
+          <div class="drop-zone-content">
+            <div class="upload-icon-circle">
+              <i class="fa-solid fa-arrow-up-from-bracket"></i>
+            </div>
+            <div class="drop-text-primary">Drag & drop colonoscopy frame</div>
+            <div class="drop-text-sub">or <button type="button" class="btn-link" id="btn-browse">browse file</button> from system</div>
+            <div class="drop-features">
+              <span class="tag"><i class="fa-solid fa-paste"></i> Paste (Ctrl+V)</span>
+              <span class="tag"><i class="fa-solid fa-image"></i> JPG, PNG, WEBP</span>
+            </div>
+          </div>
+          <!-- Scanning beam line animation when analyzing -->
+          <div id="scanline" class="scanline hidden"></div>
+        </div>
+      </div>
+
+      <!-- Section 2: Preset Sample Showcase -->
+      <div class="card panel-section">
+        <div class="section-header-flex">
+          <div class="section-title">
+            <i class="fa-solid fa-flask-vial"></i>
+            <h3>Clinical Preset Library</h3>
+          </div>
+          <span class="badge-hint">1-Click Test</span>
+        </div>
+        <p class="section-desc">Test curated endoscopic colonoscopy frames representing key clinical morphologies:</p>
+
+        <div class="sample-grid">
+          <div class="sample-card active" data-sample="sessile">
+            <div class="sample-thumb-wrap">
+              <img src="/static/samples/sample_sessile.jpg" alt="Sessile Polyp" class="sample-thumb">
+              <span class="sample-badge type-is">Paris Is</span>
+            </div>
+            <div class="sample-info">
+              <div class="sample-name">Sessile Adenoma</div>
+              <div class="sample-meta">Broad-based elevated</div>
+            </div>
+          </div>
+
+          <div class="sample-card" data-sample="pedunculated">
+            <div class="sample-thumb-wrap">
+              <img src="/static/samples/sample_pedunculated.jpg" alt="Pedunculated Polyp" class="sample-thumb">
+              <span class="sample-badge type-ip">Paris Ip</span>
+            </div>
+            <div class="sample-info">
+              <div class="sample-name">Pedunculated</div>
+              <div class="sample-meta">Stalked mucosal head</div>
+            </div>
+          </div>
+
+          <div class="sample-card" data-sample="flat">
+            <div class="sample-thumb-wrap">
+              <img src="/static/samples/sample_flat_adenoma.jpg" alt="Flat Adenoma" class="sample-thumb">
+              <span class="sample-badge type-iia">Paris IIa</span>
+            </div>
+            <div class="sample-info">
+              <div class="sample-name">Flat Lesion</div>
+              <div class="sample-meta">Subtle mucosal elevation</div>
+            </div>
+          </div>
+
+          <div class="sample-card" data-sample="normal">
+            <div class="sample-thumb-wrap">
+              <img src="/static/samples/sample_normal_mucosa.jpg" alt="Normal Mucosa" class="sample-thumb">
+              <span class="sample-badge type-neg">Negative</span>
+            </div>
+            <div class="sample-info">
+              <div class="sample-name">Normal Mucosa</div>
+              <div class="sample-meta">Clean healthy control</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Visualizer & Delineation Controls -->
+      <div class="card panel-section">
+        <div class="section-title">
+          <i class="fa-solid fa-sliders"></i>
+          <h3>Display & Mask Controls</h3>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="control-group">
+          <label class="control-label">
+            <span>Delineation Color</span>
+            <span id="color-hex-label" class="control-value-badge">Emerald #10b981</span>
+          </label>
+          <div class="color-palette">
+            <button class="color-swatch active" data-color="#10b981" style="--c: #10b981;" title="Emerald Neon"></button>
+            <button class="color-swatch" data-color="#ef4444" style="--c: #ef4444;" title="Laser Red"></button>
+            <button class="color-swatch" data-color="#06b6d4" style="--c: #06b6d4;" title="Cyber Cyan"></button>
+            <button class="color-swatch" data-color="#f59e0b" style="--c: #f59e0b;" title="Amber Gold"></button>
+            <button class="color-swatch" data-color="#8b5cf6" style="--c: #8b5cf6;" title="Electric Violet"></button>
+            <button class="color-swatch" data-color="#ec4899" style="--c: #ec4899;" title="Hot Magenta"></button>
+          </div>
+        </div>
+
+        <!-- Mask Opacity Slider -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Mask Opacity</span>
+            <span id="opacity-val" class="control-value-badge">55%</span>
+          </div>
+          <input type="range" id="opacity-slider" min="10" max="100" value="55" class="custom-range">
+        </div>
+
+        <!-- Detection Sensitivity / Threshold -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Decision Threshold</span>
+            <span id="threshold-val" class="control-value-badge">0.45</span>
+          </div>
+          <input type="range" id="threshold-slider" min="20" max="80" value="45" class="custom-range">
+        </div>
+
+        <!-- Re-run Analysis Button -->
+        <button id="btn-reanalyze" class="btn-action">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span>Apply Adjustments</span>
+        </button>
+      </div>
+
+    </aside>
+
+
+    <!-- RIGHT PANEL: Visualization Stage & Clinical Intelligence -->
+    <section class="main-display-panel">
+
+      <!-- View Modes & Toolbar -->
+      <div class="visualizer-header">
+        
+        <div class="view-mode-tabs">
+          <button class="mode-tab active" data-mode="split" title="Interactive Before / After Split Slider">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+            <span>Split Reveal</span>
+          </button>
+          <button class="mode-tab" data-mode="overlay" title="Alpha-Blended Lesion Delineation">
+            <i class="fa-solid fa-layer-group"></i>
+            <span>Overlay Blend</span>
+          </button>
+          <button class="mode-tab" data-mode="contours" title="Edge Contour & Bounding Box Target">
+            <i class="fa-solid fa-vector-square"></i>
+            <span>Contours & Box</span>
+          </button>
+          <button class="mode-tab" data-mode="heatmap" title="Jet Probability Activation Heatmap">
+            <i class="fa-solid fa-fire"></i>
+            <span>Probability Heatmap</span>
+          </button>
+          <button class="mode-tab" data-mode="mask" title="Binary Ground-Truth Mask">
+            <i class="fa-solid fa-mask"></i>
+            <span>Binary Mask</span>
+          </button>
+          <button class="mode-tab" data-mode="quad" title="Synchronized 4-View Grid">
+            <i class="fa-solid fa-table-cells-large"></i>
+            <span>Quad Grid</span>
+          </button>
+        </div>
+
+        <div class="stage-actions">
+          <button id="btn-zoom-in" class="icon-tool" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button id="btn-zoom-out" class="icon-tool" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <button id="btn-zoom-reset" class="icon-tool" title="Reset View"><i class="fa-solid fa-compress"></i></button>
+          <button id="btn-fullscreen" class="icon-tool" title="Toggle Fullscreen Theater"><i class="fa-solid fa-expand"></i></button>
+        </div>
+
+      </div>
+
+      <!-- Visualizer Stage Viewport -->
+      <div class="visualizer-viewport-container card">
+        
+        <!-- Loading spinner overlay -->
+        <div id="stage-loader" class="stage-loader hidden">
+          <div class="spinner-core">
+            <div class="spinner-ring"></div>
+            <i class="fa-solid fa-dna spinner-icon"></i>
+          </div>
+          <div class="loader-text">Segmenting Mucosal Tissue with VGG-16 U-Net...</div>
+          <div class="loader-sub">Extracting feature pyramid & computing skip connections</div>
+        </div>
+
+        <!-- 1. Split Reveal Container (Default Mode) -->
+        <div id="view-split" class="visualizer-view active">
+          <div class="split-slider-wrapper" id="split-wrapper">
+            <!-- Raw Endoscopy Layer (Under) -->
+            <img id="split-raw-img" src="/static/samples/sample_sessile.jpg" alt="Raw Endoscopy Frame" class="split-img split-bottom">
+            <span class="split-label label-left">Raw Endoscopy</span>
+
+            <!-- AI Segmented Overlay Layer (Over, clipped) -->
+            <div class="split-top-wrapper" id="split-top-wrapper">
+              <img id="split-overlay-img" src="/static/samples/sample_sessile.jpg" alt="AI Segmented Lesion" class="split-img split-top">
+              <span class="split-label label-right">AI Delineation</span>
+            </div>
+
+            <!-- Draggable Divider Line -->
+            <div class="split-divider" id="split-divider">
+              <div class="split-handle">
+                <i class="fa-solid fa-arrows-left-right"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Single Layer View (Overlay / Contours / Heatmap / Mask) -->
+        <div id="view-single" class="visualizer-view hidden">
+          <div class="single-img-wrapper" id="single-zoom-container">
+            <img id="single-display-img" src="/static/samples/sample_sessile.jpg" alt="Delineated View" class="single-display-img">
+            <span id="single-layer-tag" class="split-label label-left">Overlay Blend</span>
+          </div>
+        </div>
+
+        <!-- 3. Quad Grid View (4 views side by side) -->
+        <div id="view-quad" class="visualizer-view hidden">
+          <div class="quad-grid">
+            <div class="quad-cell">
+              <div class="quad-label"><i class="fa-solid fa-camera"></i> Raw Frame</div>
+              <img id="quad-raw" src="" alt="Raw Frame" class="quad-img">
+            </div>
+            <div class="quad-cell">
+              <div class="quad-label"><i class="fa-solid fa-layer-group"></i> Color Blend Overlay</div>
+              <img id="quad-overlay" src="" alt="Overlay" class="quad-img">
+            </div>
+            <div class="quad-cell">
+              <div class="quad-label"><i class="fa-solid fa-fire"></i> Probability Heatmap</div>
+              <img id="quad-heatmap" src="" alt="Heatmap" class="quad-img">
+            </div>
+            <div class="quad-cell">
+              <div class="quad-label"><i class="fa-solid fa-mask"></i> Binary Lesion Mask</div>
+              <img id="quad-mask" src="" alt="Mask" class="quad-img">
+            </div>
+          </div>
+        </div>
+
+        <!-- Video stream indicator banner (active during simulation) -->
+        <div id="stream-live-banner" class="stream-live-banner hidden">
+          <div class="rec-dot"></div>
+          <span>LIVE ENDOSCOPIC VIDEO STREAM (24 FPS) — REAL-TIME INFERENCE</span>
+          <button id="btn-stop-stream" class="btn-xs-danger"><i class="fa-solid fa-stop"></i> Stop</button>
+        </div>
+
+      </div>
+
+      <!-- CLINICAL INTELLIGENCE & TELEMETRY DASHBOARD -->
+      <div class="clinical-dashboard">
+        
+        <!-- Primary Alert & Status Banner -->
+        <div class="diagnostic-banner card" id="diag-banner">
+          <div class="banner-status-icon" id="banner-icon">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="banner-content">
+            <div class="banner-headline-row">
+              <span id="detection-badge" class="badge-status-pos">POSITIVE: LESION DETECTED</span>
+              <span id="paris-badge" class="badge-paris">Paris Type Is (Sessile)</span>
+            </div>
+            <div id="morphology-text" class="banner-desc">
+              Elevated adenomatous lesion with irregular mucosal surface and crypt architecture distortion.
+            </div>
+          </div>
+          <div class="banner-confidence-box">
+            <div class="conf-label">Detection Confidence</div>
+            <div class="conf-number"><span id="conf-val">99.4</span><span class="conf-pct">%</span></div>
+            <div class="conf-bar-track">
+              <div id="conf-bar-fill" class="conf-bar-fill" style="width: 99.4%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Telemetry Metric Cards -->
+        <div class="telemetry-grid">
+          
+          <!-- Metric 1: Lesion Surface Area -->
+          <div class="telemetry-card card">
+            <div class="card-icon-header">
+              <span class="metric-title">Lesion Area Coverage</span>
+              <div class="metric-icon-bubble"><i class="fa-solid fa-chart-pie"></i></div>
+            </div>
+            <div class="metric-value-row">
+              <span id="metric-area-pct" class="metric-big-val">6.04%</span>
+              <span class="metric-unit">of FOV</span>
+            </div>
+            <div class="metric-sub-detail">
+              <span id="metric-pixels">15,832</span> px / <span id="metric-total-pixels">262,144</span> px
+            </div>
+          </div>
+
+          <!-- Metric 2: Paris Classification -->
+          <div class="telemetry-card card">
+            <div class="card-icon-header">
+              <span class="metric-title">Paris Morphology</span>
+              <div class="metric-icon-bubble"><i class="fa-solid fa-shapes"></i></div>
+            </div>
+            <div class="metric-value-row">
+              <span id="metric-paris-class" class="metric-med-val">Type Is</span>
+              <span class="metric-subtag">Sessile</span>
+            </div>
+            <div class="metric-sub-detail">
+              Dome-shaped broad base
+            </div>
+          </div>
+
+          <!-- Metric 3: Clinical Risk Stratification -->
+          <div class="telemetry-card card">
+            <div class="card-icon-header">
+              <span class="metric-title">Risk Stratification</span>
+              <div class="metric-icon-bubble"><i class="fa-solid fa-shield-halved"></i></div>
+            </div>
+            <div class="metric-value-row">
+              <span id="metric-risk-tier" class="metric-med-val risk-tier-high">Tier 3</span>
+              <span class="metric-subtag">Elevated</span>
+            </div>
+            <div class="metric-sub-detail" id="metric-risk-label">
+              Polypectomy Indicated
+            </div>
+          </div>
+
+          <!-- Metric 4: Inference Latency -->
+          <div class="telemetry-card card">
+            <div class="card-icon-header">
+              <span class="metric-title">Inference Latency</span>
+              <div class="metric-icon-bubble"><i class="fa-solid fa-bolt"></i></div>
+            </div>
+            <div class="metric-value-row">
+              <span id="metric-latency" class="metric-big-val">29.3</span>
+              <span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-sub-detail" id="metric-hardware">
+              VGG-16 U-Net Engine
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Clinical Recommendation & Actions Card -->
+        <div class="card recommendation-card">
+          <div class="rec-header">
+            <div class="rec-title">
+              <i class="fa-solid fa-stethoscope"></i>
+              <h4>Clinical Decision Support & Next Steps</h4>
+            </div>
+            <div class="rec-tools">
+              <button id="btn-download-overlay" class="btn-chip" title="Download composite overlay image">
+                <i class="fa-solid fa-download"></i> Overlay
+              </button>
+              <button id="btn-download-mask" class="btn-chip" title="Download binary segmentation mask">
+                <i class="fa-solid fa-file-image"></i> Mask
+              </button>
+              <button id="btn-copy-json" class="btn-chip" title="Copy raw JSON telemetry">
+                <i class="fa-solid fa-code"></i> Copy JSON
+              </button>
+            </div>
+          </div>
+          <div id="recommendation-text" class="rec-body">
+            Endoscopic mucosal resection (EMR) or hot snare polypectomy recommended. Ensure complete lateral margin delineation with chromoendoscopy prior to resection.
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- MODAL 1: Model Specifications & Training Benchmark -->
+  <div id="modal-model" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-brain"></i>
+          <h3>VGG-16 U-Net Architecture & Kvasir-SEG Benchmark</h3>
+        </div>
+        <button class="modal-close" id="btn-close-model-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="model-summary-box">
+          <p>
+            This system implements an advanced <strong>Encoder-Decoder U-Net</strong> architecture leveraging an ImageNet-pretrained <strong>VGG-16</strong> feature backbone. High-resolution spatial features extracted from low-level stages are bridged across skip connections to recover fine mucosal boundary delineations.
+          </p>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-number">0.8915</div>
+            <div class="stat-name">Mean Dice Score</div>
+            <div class="stat-desc">Test evaluation</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">0.8301</div>
+            <div class="stat-name">Polyp IoU</div>
+            <div class="stat-desc">Jaccard Index</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">0.8931</div>
+            <div class="stat-name">Mean IoU</div>
+            <div class="stat-desc">Binary 2-class</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-number">40</div>
+            <div class="stat-name">Training Epochs</div>
+            <div class="stat-desc">Converged</div>
+          </div>
+        </div>
+
+        <h4 class="modal-section-h4"><i class="fa-solid fa-network-wired"></i> Network Pipeline</h4>
+        <div class="pipeline-flow">
+          <div class="pipe-node">Input (512x512x3)</div>
+          <i class="fa-solid fa-arrow-right pipe-arrow"></i>
+          <div class="pipe-node">VGG-16 Stages 1-5</div>
+          <i class="fa-solid fa-arrow-right pipe-arrow"></i>
+          <div class="pipe-node">Bottleneck Conv</div>
+          <i class="fa-solid fa-arrow-right pipe-arrow"></i>
+          <div class="pipe-node">4x Decoder + Skips</div>
+          <i class="fa-solid fa-arrow-right pipe-arrow"></i>
+          <div class="pipe-node">Sigmoid Head</div>
+        </div>
+
+        <div class="disclaimer-callout">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Educational & Research demonstration project. Developed for computer-assisted detection (CADe/CADx) algorithmic evaluation. Not cleared as an independent diagnostic medical device.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 2: Printable Clinical Diagnostic Report -->
+  <div id="modal-report" class="modal-backdrop hidden">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header no-print">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-file-medical"></i>
+          <h3>Clinical Examination & Polyp Segmentation Report</h3>
+        </div>
+        <div class="modal-header-actions">
+          <button class="btn-primary" onclick="window.print()">
+            <i class="fa-solid fa-print"></i> Print / Save PDF
+          </button>
+          <button class="modal-close" id="btn-close-report-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+
+      <!-- Printable Report Sheet -->
+      <div class="report-sheet" id="printable-report">
+        
+        <!-- Hospital Header -->
+        <div class="report-header">
+          <div class="report-hospital">
+            <h2>ENDOVALLIS GASTROINTESTINAL CENTER</h2>
+            <div class="hospital-sub">Department of Digestive Endoscopy & Advanced Luminal Imaging</div>
+          </div>
+          <div class="report-badge">
+            AI-ASSISTED LESION REPORT
+          </div>
+        </div>
+
+        <hr class="report-divider">
+
+        <!-- Patient & Procedure Meta -->
+        <div class="report-meta-grid">
+          <div><strong>Patient ID:</strong> <span id="rep-patient-id">PT-2026-88419</span></div>
+          <div><strong>Examination:</strong> Colonoscopy + AI CADe/x</div>
+          <div><strong>Timestamp:</strong> <span id="rep-timestamp"></span></div>
+          <div><strong>Endoscopist:</strong> Attending Gastroenterologist</div>
+          <div><strong>Segmentation Model:</strong> VGG-16 U-Net (Dice: 0.8915)</div>
+          <div><strong>Procedure Scope:</strong> High-Definition Olympus Exera III</div>
+        </div>
+
+        <!-- Clinical Image Evidence Gallery -->
+        <div class="report-evidence-section">
+          <h4>IMAGE EVIDENCE & DELINEATION</h4>
+          <div class="report-img-grid">
+            <div class="report-img-item">
+              <div class="rep-img-label">Raw Endoscopic Frame</div>
+              <img id="rep-img-raw" src="" alt="Raw Frame">
+            </div>
+            <div class="report-img-item">
+              <div class="rep-img-label">AI Lesion Contour Delineation</div>
+              <img id="rep-img-contour" src="" alt="Contours">
+            </div>
+            <div class="report-img-item">
+              <div class="rep-img-label">Binary Lesion Mask</div>
+              <img id="rep-img-mask" src="" alt="Mask">
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantitative Analysis Table -->
+        <div class="report-section">
+          <h4>QUANTITATIVE MORPHOMETRIC FINDINGS</h4>
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Finding Parameter</th>
+                <th>Measured Value</th>
+                <th>Diagnostic Clinical Classification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Lesion Detection Status</strong></td>
+                <td id="rep-status-val">POSITIVE</td>
+                <td>Confidence: <span id="rep-conf-val">99.4%</span></td>
+              </tr>
+              <tr>
+                <td><strong>Paris Morphological Classification</strong></td>
+                <td id="rep-paris-val">Type Is (Sessile)</td>
+                <td>Elevated adenomatous lesion with broad base</td>
+              </tr>
+              <tr>
+                <td><strong>Lesion Surface Coverage</strong></td>
+                <td id="rep-area-val">6.04% of FOV</td>
+                <td>Estimated Pixels: <span id="rep-pixels-val">15,832</span> px</td>
+              </tr>
+              <tr>
+                <td><strong>Risk Stratification Tier</strong></td>
+                <td id="rep-risk-val">Tier 3 (Elevated Risk)</td>
+                <td>Neoplastic adenoma suspect</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Clinical Impression & Recommendations -->
+        <div class="report-section">
+          <h4>CLINICAL IMPRESSION & RECOMMENDATIONS</h4>
+          <div class="report-rec-box" id="rep-rec-text">
+            Endoscopic mucosal resection (EMR) indicated. Pathological submission of biopsy specimens recommended for adenoma dysplasia staging.
+          </div>
+        </div>
+
+        <!-- Signature Block -->
+        <div class="report-footer">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div>Examining Endoscopist Signature</div>
+            <div class="sig-title">MD, Gastrointestinal Endoscopy</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div>AI System Verification</div>
+            <div class="sig-title">EndoVision VGG16-UNet Engine</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="toast hidden">
+    <i class="fa-solid fa-circle-check toast-icon"></i>
+    <span id="toast-msg">Analysis completed successfully</span>
+  </div>
+
+  <!-- Main JavaScript App -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
