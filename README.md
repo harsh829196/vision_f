@@ -6,7 +6,7 @@ A clinical-grade deep learning web application built with **Flask** and an inter
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Feature
 
 ### 🖥️ Awesome Frontend & Visualizer
 - **Interactive Before/After Split Reveal**: Smooth dragging divider slider comparing the raw colonoscopy video frame directly against the AI lesion segmentation overlay.
